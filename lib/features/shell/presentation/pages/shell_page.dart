@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:playon/core/models/user_model.dart';
 import 'package:playon/core/services/location_service.dart';
 import 'package:playon/features/home/presentation/pages/home_page.dart';
 import 'package:playon/features/explore/presentation/pages/explore_page.dart';
@@ -8,7 +9,8 @@ import 'package:playon/features/profile/presentation/pages/profile_page.dart';
 import 'package:playon/features/home/presentation/widgets/custom_bottom_nav.dart';
 
 class ShellPage extends StatefulWidget {
-  const ShellPage({super.key});
+  final UserModel user;
+  const ShellPage({super.key, required this.user});
 
   @override
   State<ShellPage> createState() => _ShellPageState();
@@ -64,7 +66,7 @@ class _ShellPageState extends State<ShellPage> {
       const ExplorePage(),
       const CreatePage(),
       const NotificationsPage(),
-      const ProfilePage(),
+      ProfilePage(user: widget.user),
     ];
 
     return Scaffold(
