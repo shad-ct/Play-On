@@ -20,8 +20,8 @@ class _CreateGamePageState extends State<CreateGamePage> {
   bool _isCreating = false;
   bool _isPublic = true;
   DateTime? _selectedDate;
-  List<String> _availableSlots = [];
-  String? _selectedSlot;
+  TimeOfDay? _fromTime;
+  TimeOfDay? _toTime;
 
   String? _generatedCode;
   String? _generatedGameId;
@@ -56,56 +56,23 @@ class _CreateGamePageState extends State<CreateGamePage> {
     }
   }
 
-  Future<void> _calculateSlots() async {
-    if (_selectedTurfId == null || _selectedDate == null) return;
-    
-    final turf = _turfs.firstWhere((t) => t['id'] == _selectedTurfId, orElse: () => null);
-    if (turf == null) return;
-    
-    final openTimeStr = turf['open_time'] as String?;
-    final closeTimeStr = turf['close_time'] as String?;
-    
-    if (openTimeStr == null || closeTimeStr == null) {
-      setState(() {
-        _availableSlots = [];
-        _selectedSlot = null;
-      });
-      return;
-    }
-    
-    final openHour = int.parse(openTimeStr.split(':')[0]);
-    final closeHour = int.parse(closeTimeStr.split(':')[0]);
-    
-    final dateStr = _selectedDate!.toIso8601String().split('T')[0];
-    try {
-      final existingGames = await _supabase
-          .from('games')
-          .select('start_time')
-          .eq('turf_id', _selectedTurfId!)
-          .eq('game_date', dateStr);
-          
-      final Set<String> bookedTimes = existingGames
-          .map((g) => (g['start_time'] as String).substring(0, 5))
-          .toSet();
-          
-      List<String> slots = [];
-      for (int i = openHour; i < closeHour; i++) {
-        final timeStr = '${i.toString().padLeft(2, '0')}:00';
-        if (!bookedTimes.contains(timeStr)) {
-          slots.add(timeStr);
-        }
-      }
-      
-      setState(() {
-        _availableSlots = slots;
-        _selectedSlot = slots.isNotEmpty ? slots.first : null;
-      });
-    } catch (e) {
-      setState(() {
-        _availableSlots = [];
-        _selectedSlot = null;
-      });
-    }
+  // Removed _calculateSlots as we use free form time selection now
+  
+  TimeOfDay _parseTime(String timeStr) {
+    final parts = timeStr.split(':');
+    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+  }
+  
+  String _formatTime(TimeOfDay t) {
+    return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
+  }
+
+  bool _isOverlap(TimeOfDay start1, TimeOfDay end1, TimeOfDay start2, TimeOfDay end2) {
+    final start1Mins = start1.hour * 60 + start1.minute;
+    final end1Mins = end1.hour * 60 + end1.minute;
+    final start2Mins = start2.hour * 60 + start2.minute;
+    final end2Mins = end2.hour * 60 + end2.minute;
+    return start1Mins < end2Mins && end1Mins > start2Mins;
   }
 
   String _generateGameCode() {
@@ -134,9 +101,18 @@ class _CreateGamePageState extends State<CreateGamePage> {
       );
       return;
     }
-    if (_selectedSlot == null) {
+    if (_fromTime == null || _toTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an available time slot')),
+        const SnackBar(content: Text('Please select From and To times')),
+      );
+      return;
+    }
+
+    final fromMins = _fromTime!.hour * 60 + _fromTime!.minute;
+    final toMins = _toTime!.hour * 60 + _toTime!.minute;
+    if (fromMins >= toMins) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('To time must be after From time')),
       );
       return;
     }
@@ -146,7 +122,8 @@ class _CreateGamePageState extends State<CreateGamePage> {
     });
 
     final code = _generateGameCode();
-    final userId = _supabase.auth.currentUser?.id;
+    final user = _supabase.auth.currentUser;
+    final userId = user?.id;
 
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -157,6 +134,65 @@ class _CreateGamePageState extends State<CreateGamePage> {
     }
 
     try {
+      final dateStr = _selectedDate!.toIso8601String().split('T')[0];
+
+      // Check overlap
+      final existingBookings = await _supabase
+          .from('bookings')
+          .select('start_time, end_time')
+          .eq('turf_id', _selectedTurfId!)
+          .eq('booking_date', dateStr)
+          .neq('status', 'rejected');
+
+      final existingGames = await _supabase
+          .from('games')
+          .select('start_time, end_time')
+          .eq('turf_id', _selectedTurfId!)
+          .eq('game_date', dateStr);
+
+      for (var b in existingBookings) {
+        if (b['start_time'] == null || b['end_time'] == null) continue;
+        final bStart = _parseTime(b['start_time']);
+        final bEnd = _parseTime(b['end_time']);
+        if (_isOverlap(_fromTime!, _toTime!, bStart, bEnd)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Time slot is already booked')));
+          setState(() => _isCreating = false);
+          return;
+        }
+      }
+
+      for (var g in existingGames) {
+        if (g['start_time'] == null || g['end_time'] == null) continue;
+        final gStart = _parseTime(g['start_time']);
+        final gEnd = _parseTime(g['end_time']);
+        if (_isOverlap(_fromTime!, _toTime!, gStart, gEnd)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Time slot is already booked')));
+          setState(() => _isCreating = false);
+          return;
+        }
+      }
+
+      final meta = user?.userMetadata ?? {};
+      final playerName = meta['full_name'] ?? user?.email ?? 'Unknown Player';
+      final playerPhone = meta['phone_number'] ?? user?.phone ?? '0000000000';
+
+      final startTimeStr = _formatTime(_fromTime!);
+      final endTimeStr = _formatTime(_toTime!);
+
+      // Insert booking for Turf owner approval
+      await _supabase.from('bookings').insert({
+        'turf_id': _selectedTurfId,
+        'player_name': playerName,
+        'player_phone': playerPhone,
+        'booking_date': dateStr,
+        'start_time': startTimeStr,
+        'end_time': endTimeStr,
+        'status': 'pending',
+      });
+
+      // Insert game
       final response = await _supabase.from('games').insert({
         'code': code,
         'host_id': userId,
@@ -164,8 +200,10 @@ class _CreateGamePageState extends State<CreateGamePage> {
         'max_players': _numPlayers,
         'turf_id': _selectedTurfId,
         'is_public': _isPublic,
-        'game_date': _selectedDate!.toIso8601String().split('T')[0],
-        'start_time': _selectedSlot,
+        'game_date': dateStr,
+        'start_time': startTimeStr,
+        'end_time': endTimeStr,
+        'approval_status': 'pending',
       }).select().single();
 
       setState(() {
@@ -261,7 +299,6 @@ class _CreateGamePageState extends State<CreateGamePage> {
                             setState(() {
                               _selectedTurfId = val;
                             });
-                            _calculateSlots();
                           },
                         ),
                   const SizedBox(height: 30),
@@ -283,7 +320,6 @@ class _CreateGamePageState extends State<CreateGamePage> {
                                 );
                                 if (date != null) {
                                   setState(() => _selectedDate = date);
-                                  _calculateSlots();
                                 }
                               },
                               child: Container(
@@ -303,26 +339,44 @@ class _CreateGamePageState extends State<CreateGamePage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Time Slot', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            const Text('From Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                             const SizedBox(height: 10),
-                            DropdownButtonFormField<String>(
-                              value: _selectedSlot,
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              ),
-                              items: _availableSlots.map<DropdownMenuItem<String>>((slot) {
-                                return DropdownMenuItem<String>(
-                                  value: slot,
-                                  child: Text(slot),
+                            GestureDetector(
+                              onTap: () async {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: _fromTime ?? TimeOfDay.now(),
                                 );
-                              }).toList(),
-                              onChanged: (val) {
-                                setState(() {
-                                  _selectedSlot = val;
-                                });
+                                if (time != null) setState(() => _fromTime = time);
                               },
-                              hint: const Text('Slot'),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(_fromTime?.format(context) ?? 'Select Time'),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            const Text('To Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            const SizedBox(height: 10),
+                            GestureDetector(
+                              onTap: () async {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: _toTime ?? TimeOfDay.now(),
+                                );
+                                if (time != null) setState(() => _toTime = time);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(_toTime?.format(context) ?? 'Select Time'),
+                              ),
                             ),
                           ],
                         ),
