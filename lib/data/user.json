@@ -1,0 +1,256 @@
+{
+    "players": [
+        {
+            "id": "u001",
+            "username": "rohan07",
+            "password": "Rohan@123",
+            "email": "rohan07@playon.app",
+            "profileImageUrl": "https://picsum.photos/seed/imran_king/300/300",
+            "isVerified": true,
+            "fullName": "Hanna Kutti",
+            "age": 24,
+            "city": "Mumbai",
+            "country": "India",
+            "preferredFoot": "Right",
+            "primaryPosition": "ST",
+            "secondaryPositions": [
+                "RW"
+            ],
+            "jerseyNumber": 7,
+            "rating": 90,
+            "rarity": "gold",
+            "specialEdition": null,
+            "sportPreference": "Football",
+            "stats": {
+                "PAC": 82,
+                "SHO": 80,
+                "PAS": 70,
+                "DRI": 76,
+                "DEF": 45,
+                "PHY": 72
+            },
+            "career": {
+                "gamesPlayed": 48,
+                "wins": 29,
+                "draws": 6,
+                "losses": 13,
+                "goals": 36,
+                "assists": 14,
+                "cleanSheets": 0,
+                "winPercentage": 60.4,
+                "reliabilityScore": 96,
+                "averageMatchRating": 7.8,
+                "points": 1240
+            },
+            "badges": [
+                "topScorer",
+                "mvp"
+            ],
+            "savedTurfs": [
+                "Andheri Sports Arena",
+                "Turf 9 Vile Parle"
+            ]
+        },
+        {
+            "id": "u002",
+            "username": "vik_def",
+            "password": "Vikram@321",
+            "email": "vikram.def@playon.app",
+            "profileImageUrl": "https://picsum.photos/seed/imran_king/300/300",
+            "isVerified": true,
+            "fullName": "Vikram Desai",
+            "age": 27,
+            "city": "Pune",
+            "country": "India",
+            "preferredFoot": "Left",
+            "primaryPosition": "CB",
+            "secondaryPositions": [
+                "LB"
+            ],
+            "jerseyNumber": 4,
+            "rating": 72,
+            "rarity": "silver",
+            "specialEdition": null,
+            "sportPreference": "Football",
+            "stats": {
+                "PAC": 64,
+                "SHO": 40,
+                "PAS": 60,
+                "DRI": 58,
+                "DEF": 78,
+                "PHY": 80
+            },
+            "career": {
+                "gamesPlayed": 65,
+                "wins": 38,
+                "draws": 10,
+                "losses": 17,
+                "goals": 5,
+                "assists": 7,
+                "cleanSheets": 18,
+                "winPercentage": 58.4,
+                "reliabilityScore": 92,
+                "averageMatchRating": 7.4,
+                "points": 1480
+            },
+            "badges": [
+                "ironDefender",
+                "cleanSheet"
+            ],
+            "savedTurfs": [
+                "Pune FC Ground"
+            ]
+        },
+        {
+            "id": "u003",
+            "username": "aryan_speed",
+            "password": "Aryan@Fast9",
+            "email": "aryan.speed@playon.app",
+            "profileImageUrl": "https://picsum.photos/seed/imran_king/300/300",
+            "isVerified": true,
+            "fullName": "Aryan Mehta",
+            "age": 22,
+            "city": "Delhi",
+            "country": "India",
+            "preferredFoot": "Right",
+            "primaryPosition": "RW",
+            "secondaryPositions": [
+                "ST"
+            ],
+            "jerseyNumber": 11,
+            "rating": 91,
+            "rarity": "elite",
+            "specialEdition": null,
+            "sportPreference": "Football",
+            "stats": {
+                "PAC": 94,
+                "SHO": 85,
+                "PAS": 82,
+                "DRI": 90,
+                "DEF": 40,
+                "PHY": 75
+            },
+            "career": {
+                "gamesPlayed": 82,
+                "wins": 55,
+                "draws": 9,
+                "losses": 18,
+                "goals": 61,
+                "assists": 33,
+                "cleanSheets": 0,
+                "winPercentage": 67.1,
+                "reliabilityScore": 98,
+                "averageMatchRating": 8.6,
+                "points": 2140
+            },
+            "badges": [
+                "mvp",
+                "topScorer"
+            ],
+            "savedTurfs": [
+                "Dwarka Turf Arena",
+                "GK Sports Hub"
+            ]
+        },
+        {
+            "id": "u004",
+            "username": "sameer_mid",
+            "password": "Sameer@Mid8",
+            "email": "sameer.mid@playon.app",
+            "profileImageUrl": "https://picsum.photos/seed/imran_king/300/300",
+            "isVerified": false,
+            "fullName": "Sameer Khan",
+            "age": 25,
+            "city": "Hyderabad",
+            "country": "India",
+            "preferredFoot": "Right",
+            "primaryPosition": "CM",
+            "secondaryPositions": [
+                "CAM"
+            ],
+            "jerseyNumber": 8,
+            "rating": 84,
+            "rarity": "gold",
+            "specialEdition": null,
+            "sportPreference": "Football",
+            "stats": {
+                "PAC": 75,
+                "SHO": 78,
+                "PAS": 88,
+                "DRI": 82,
+                "DEF": 65,
+                "PHY": 74
+            },
+            "career": {
+                "gamesPlayed": 70,
+                "wins": 40,
+                "draws": 12,
+                "losses": 18,
+                "goals": 21,
+                "assists": 42,
+                "cleanSheets": 0,
+                "winPercentage": 57.1,
+                "reliabilityScore": 95,
+                "averageMatchRating": 8.1,
+                "points": 1760
+            },
+            "badges": [
+                "assist"
+            ],
+            "savedTurfs": [
+                "Hitech City Turf"
+            ]
+        },
+        {
+            "id": "u005",
+            "username": "imran_king",
+            "password": "Imran@Legend95",
+            "email": "imran.king@playon.app",
+            "profileImageUrl": "https://picsum.photos/seed/sameer_mid/300/300",
+            "isVerified": true,
+            "fullName": "Imran Qureshi",
+            "age": 30,
+            "city": "Bengaluru",
+            "country": "India",
+            "preferredFoot": "Right",
+            "primaryPosition": "CF",
+            "secondaryPositions": [
+                "ST"
+            ],
+            "jerseyNumber": 10,
+            "rating": 96,
+            "rarity": "elite",
+            "specialEdition": "legend",
+            "sportPreference": "Football",
+            "stats": {
+                "PAC": 92,
+                "SHO": 95,
+                "PAS": 90,
+                "DRI": 93,
+                "DEF": 50,
+                "PHY": 88
+            },
+            "career": {
+                "gamesPlayed": 120,
+                "wins": 82,
+                "draws": 15,
+                "losses": 23,
+                "goals": 112,
+                "assists": 54,
+                "cleanSheets": 0,
+                "winPercentage": 68.3,
+                "reliabilityScore": 99,
+                "averageMatchRating": 9.2,
+                "points": 3100
+            },
+            "badges": [
+                "mvp",
+                "topScorer"
+            ],
+            "savedTurfs": [
+                "Koramangala Turf Pro",
+                "Indiranagar 5s Arena"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,4 @@
+[info] Unnecessary use of multiple underscores (D:\playon\lib\features\home\presentation\widgets\join_game_slider.dart:21:31)
+[info] Statements in an if should be enclosed in a block (D:\playon\lib\features\home\presentation\widgets\location_badge.dart:29:36)
+[info] Unnecessary use of multiple underscores (D:\playon\lib\features\home\presentation\widgets\nearest_turf_slider.dart:20:31)
+[info] Unnecessary use of multiple underscores (D:\playon\lib\features\notifications\presentation\pages\notifications_page.dart:42:41)
