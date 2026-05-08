@@ -42,15 +42,12 @@ class ExplorePage extends StatelessWidget {
                     mainAxisSpacing: 12,
                     childAspectRatio: 1.5,
                   ),
-                  itemCount: 6,
+                  itemCount: 3,
                   itemBuilder: (context, index) {
                     const sports = [
                       '⚽  Football',
                       '🏏 Cricket',
-                      '🏀 Basketball',
-                      '🎾 Tennis',
                       '🏸 Badminton',
-                      '🏊 Swimming',
                     ];
                     return Container(
                       decoration: BoxDecoration(

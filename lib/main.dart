@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:playon/core/services/auth_service.dart';
 import 'package:playon/features/auth/presentation/pages/login_page.dart';
 import 'package:playon/features/shell/presentation/pages/shell_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: 'https://wwuguqavinfyozpspbog.supabase.co',
+    anonKey: 'sb_publishable_jUJi4AQq29iSCbL9BVjtrg_Lx3j7lS6',
+  );
   runApp(const PlayOnApp());
 }
 
@@ -28,7 +34,7 @@ class PlayOnApp extends StatelessWidget {
   }
 }
 
-/// Checks for a saved session before deciding the initial route.
+/// Checks Supabase for a valid session before deciding the initial route.
 class _SessionGate extends StatefulWidget {
   const _SessionGate();
 
@@ -47,9 +53,7 @@ class _SessionGateState extends State<_SessionGate> {
     final user = await AuthService.tryRestoreSession();
     if (!mounted) return;
 
-    final destination = user != null
-        ? ShellPage(user: user)
-        : const LoginPage();
+    final destination = user != null ? ShellPage(user: user) : const LoginPage();
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
@@ -63,18 +67,37 @@ class _SessionGateState extends State<_SessionGate> {
 
   @override
   Widget build(BuildContext context) {
-    // Brief splash while restoring session
+    // Splash screen while restoring session
     return const Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child: Text(
-          'PlayON',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 4,
-            color: Colors.black87,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '⚽',
+              style: TextStyle(fontSize: 48),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'PlayON',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 4,
+                color: Colors.black87,
+              ),
+            ),
+            SizedBox(height: 24),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.black26,
+              ),
+            ),
+          ],
         ),
       ),
     );

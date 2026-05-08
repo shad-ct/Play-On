@@ -1,8 +1,10 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:playon/features/profile/data/models/player_card_data.dart';
 import 'package:playon/features/profile/presentation/widgets/player_card_widget.dart';
-import 'package:playon/features/profile/presentation/widgets/player_card_back_widget.dart';
 
 /// Wraps the card with:
 ///   • Parallax tilt (±15°) via drag
@@ -28,22 +30,17 @@ class PlayerCard3dWrapper extends StatefulWidget {
 class _PlayerCard3dWrapperState extends State<PlayerCard3dWrapper>
     with TickerProviderStateMixin {
   // ── Tilt ─────────────────────────────────────────────────────────────────────
-  double _tiltX = 0.0;
-  double _tiltY = 0.0;
+  Offset _dragTilt = Offset.zero;
+  Offset _gyroTilt = Offset.zero;
+  Offset _targetGyroTilt = Offset.zero;
+  final ValueNotifier<Offset> _tiltNotifier = ValueNotifier(Offset.zero);
 
   late AnimationController _tiltReturnCtrl;
-  Animation<double>? _tiltXAnim;
-  Animation<double>? _tiltYAnim;
+  Animation<Offset>? _tiltAnim;
 
-  // ── Flip ─────────────────────────────────────────────────────────────────────
-  late AnimationController _flipCtrl;
-  bool _showFront = true;
-  bool _isFlipping = false;
-  bool _cardAnimPaused = false;
+  StreamSubscription<AccelerometerEvent>? _accelSubscription;
+  Ticker? _ticker;
 
-  // ── Raw pointer tracking for tap-vs-drag ─────────────────────────────────────
-  Offset? _pointerDown;
-  static const _tapSlop = 18.0; // px — if moved less than this, it's a tap
 
   static const _maxTiltRad = 15.0 * math.pi / 180;
   static const _perspective = 0.0008;
@@ -57,166 +54,110 @@ class _PlayerCard3dWrapperState extends State<PlayerCard3dWrapper>
       duration: const Duration(milliseconds: 550),
     )..addListener(_onTiltReturn);
 
-    _flipCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
+    if (!widget.reducedMotion) {
+      _ticker = createTicker((_) {
+        // Interpolate continuously at the display refresh rate (e.g. 60-120fps)
+        _gyroTilt = Offset(
+          _gyroTilt.dx + (_targetGyroTilt.dx - _gyroTilt.dx) * 0.15,
+          _gyroTilt.dy + (_targetGyroTilt.dy - _gyroTilt.dy) * 0.15,
+        );
+        _updateTilt();
+      })..start();
+
+      _accelSubscription = accelerometerEventStream().listen((AccelerometerEvent event) {
+        if (!mounted) return;
+        // Update target asynchronously, so that interpolation happens smoothly regardless of sensor frequency
+        _targetGyroTilt = Offset(
+          ((event.y - 4.5) / 4.0).clamp(-1.0, 1.0),
+          (-event.x / 4.0).clamp(-1.0, 1.0),
+        );
+      });
+    }
+  }
+
+  void _updateTilt() {
+    _tiltNotifier.value = Offset(
+      (_dragTilt.dx + _gyroTilt.dx).clamp(-1.0, 1.0),
+      (_dragTilt.dy + _gyroTilt.dy).clamp(-1.0, 1.0),
     );
-    _flipCtrl.addListener(_onFlipTick);
-    _flipCtrl.addStatusListener(_onFlipStatus);
   }
 
   // ── Tilt via GestureDetector ────────────────────────────────────────────────
   void _onPanUpdate(DragUpdateDetails d, BoxConstraints box) {
-    if (_isFlipping) return;
-    setState(() {
-      _tiltY = (_tiltY + d.delta.dx / box.maxWidth * 2.5).clamp(-1.0, 1.0);
-      _tiltX = (_tiltX - d.delta.dy / box.maxHeight * 2.5).clamp(-1.0, 1.0);
-    });
+    _dragTilt = Offset(
+      (_dragTilt.dx - d.delta.dy / box.maxHeight * 2.5).clamp(-1.0, 1.0),
+      (_dragTilt.dy + d.delta.dx / box.maxWidth * 2.5).clamp(-1.0, 1.0),
+    );
+    _updateTilt();
   }
 
   void _onPanEnd(DragEndDetails d) {
-    if (_isFlipping) return;
     _springReturn();
   }
 
   void _springReturn() {
     _tiltReturnCtrl.stop();
-    final fromX = _tiltX;
-    final fromY = _tiltY;
-    _tiltXAnim = Tween<double>(begin: fromX, end: 0.0).animate(
-      CurvedAnimation(parent: _tiltReturnCtrl, curve: Curves.elasticOut),
-    );
-    _tiltYAnim = Tween<double>(begin: fromY, end: 0.0).animate(
+    _tiltAnim = Tween<Offset>(begin: _dragTilt, end: Offset.zero).animate(
       CurvedAnimation(parent: _tiltReturnCtrl, curve: Curves.elasticOut),
     );
     _tiltReturnCtrl.forward(from: 0.0);
   }
 
   void _onTiltReturn() {
-    if (_tiltXAnim != null && _tiltYAnim != null) {
-      setState(() {
-        _tiltX = _tiltXAnim!.value;
-        _tiltY = _tiltYAnim!.value;
-      });
-    }
-  }
-
-  // ── Flip ─────────────────────────────────────────────────────────────────────
-  void _triggerFlip() {
-    if (_isFlipping) return;
-    setState(() {
-      _isFlipping = true;
-      _cardAnimPaused = true;
-    });
-    _tiltX = 0;
-    _tiltY = 0;
-    _tiltReturnCtrl.stop();
-
-    if (_showFront) {
-      // Front → Back: animate 0.0 → 1.0
-      _flipCtrl.forward(from: 0.0);
-    } else {
-      // Back → Front: animate 1.0 → 0.0
-      _flipCtrl.reverse(from: 1.0);
-    }
-  }
-
-  void _onFlipTick() {
-    if (!_isFlipping) return;
-
-    // Toggle face at the midpoint (0.5)
-    if (_showFront && _flipCtrl.value >= 0.5) {
-      setState(() => _showFront = false);
-    } else if (!_showFront && _flipCtrl.value < 0.5) {
-      setState(() => _showFront = true);
-    } else {
-      setState(() {}); // rebuild for scale/shadow
-    }
-  }
-
-  void _onFlipStatus(AnimationStatus status) {
-    // completed = forward finished (value=1), dismissed = reverse finished (value=0)
-    if (status == AnimationStatus.completed || status == AnimationStatus.dismissed) {
-      setState(() {
-        _isFlipping = false;
-        _cardAnimPaused = false;
-      });
-      // Don't reset! Keep value at 0.0 (front) or 1.0 (back)
+    if (_tiltAnim != null) {
+      _dragTilt = _tiltAnim!.value;
+      _updateTilt();
     }
   }
 
   @override
   void dispose() {
+    _ticker?.dispose();
+    _accelSubscription?.cancel();
     _tiltReturnCtrl.dispose();
-    _flipCtrl.dispose();
+    _tiltNotifier.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (ctx, box) {
-      final angle = _flipCtrl.value * math.pi;
-      final scale = 1.0 + math.sin(angle) * 0.05;
-      final shadow = 0.3 + math.sin(angle) * 0.35;
-
-      Widget face;
-      if (_showFront) {
-        face = PlayerCardWidget(
-          data: widget.data,
-          edition: widget.edition,
-          reducedMotion: widget.reducedMotion,
-          animationPaused: _cardAnimPaused,
-        );
-      } else {
-        face = Transform(
-          alignment: Alignment.center,
-          transform: Matrix4.identity()..rotateY(math.pi),
-          child: PlayerCardBackWidget(
-            data: widget.data,
-            edition: widget.edition,
-          ),
-        );
-      }
-
-      // Listener sits ABOVE GestureDetector to catch raw pointer events
-      // for tap detection, while GestureDetector handles pan/drag for tilt.
-      return Listener(
-        onPointerDown: (e) {
-          _pointerDown = e.localPosition;
-        },
-        onPointerUp: (e) {
-          if (_isFlipping || _pointerDown == null) return;
-          final dist = (e.localPosition - _pointerDown!).distance;
-          if (dist < _tapSlop) {
-            _triggerFlip();
-          }
-          _pointerDown = null;
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onPanUpdate: _isFlipping ? null : (d) => _onPanUpdate(d, box),
-          onPanEnd: _isFlipping ? null : _onPanEnd,
-          child: Transform(
-            alignment: Alignment.center,
-            transform: Matrix4.identity()
-              ..setEntry(3, 2, _perspective)
-              ..rotateX(_tiltX * _maxTiltRad)
-              ..rotateY(_tiltY * _maxTiltRad + angle),
-            child: Transform.scale(
-              scale: scale,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: shadow),
-                      blurRadius: 30 + math.sin(angle) * 15,
-                      spreadRadius: 2,
-                      offset: Offset(0, 10 + math.sin(angle) * 8),
-                    ),
-                  ],
-                ),
-                child: face,
+      // GestureDetector handles pan/drag for tilt.
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (d) => _onPanUpdate(d, box),
+        onPanEnd: _onPanEnd,
+        child: ValueListenableBuilder<Offset>(
+          valueListenable: _tiltNotifier,
+          builder: (context, tilt, child) {
+            return Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, _perspective)
+                ..rotateX(tilt.dx * _maxTiltRad)
+                ..rotateY(tilt.dy * _maxTiltRad),
+              child: child,
+            );
+          },
+          child: Transform.scale(
+            scale: 1.0,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 30,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: PlayerCardWidget(
+                data: widget.data,
+                edition: widget.edition,
+                reducedMotion: widget.reducedMotion,
+                animationPaused: false,
               ),
             ),
           ),

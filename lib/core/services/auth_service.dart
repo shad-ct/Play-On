@@ -1,81 +1,100 @@
-import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:playon/core/models/user_model.dart';
 
 class AuthService {
   AuthService._();
 
-  static const _kUsernameKey = 'logged_in_username';
-  static const _kPasswordKey = 'logged_in_password';
+  static final _client = Supabase.instance.client;
 
-  static UserModel? _currentUser;
-  static List<UserModel>? _users;
+  // ── Current user ──────────────────────────────────────────────────────────
 
-  /// The currently logged-in user (null if not logged in).
-  static UserModel? get currentUser => _currentUser;
+  /// The currently logged-in Supabase [User], or `null`.
+  static User? get supabaseUser => _client.auth.currentUser;
 
-  /// Whether a user is currently logged in.
-  static bool get isLoggedIn => _currentUser != null;
+  /// Whether a user session currently exists.
+  static bool get isLoggedIn => supabaseUser != null;
 
-  /// Load users from the bundled JSON asset (cached after first load).
-  static Future<void> _ensureLoaded() async {
-    if (_users != null) return;
-    final jsonStr = await rootBundle.loadString('lib/data/user.json');
-    final data = json.decode(jsonStr) as Map<String, dynamic>;
-    final list = data['players'] as List<dynamic>;
-    _users = list.map((e) => UserModel.fromJson(e as Map<String, dynamic>)).toList();
+  /// Build a [UserModel] from the active Supabase session.
+  /// Returns `null` if no session exists.
+  static UserModel? get currentUser {
+    final u = supabaseUser;
+    if (u == null) return null;
+    return UserModel.fromSupabaseUser(u);
   }
 
-  /// Try to restore a previously saved session.
-  /// Returns the [UserModel] if a valid session exists, otherwise `null`.
+  // ── Session restore ───────────────────────────────────────────────────────
+
+  /// Check if Supabase already has a valid persisted session.
+  /// (Supabase SDK restores it automatically on init — this just reads it.)
   static Future<UserModel?> tryRestoreSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final username = prefs.getString(_kUsernameKey);
-    final password = prefs.getString(_kPasswordKey);
-    if (username == null || password == null) return null;
-
-    await _ensureLoaded();
+    // Refresh the session token if it has expired
     try {
-      final user = _users!.firstWhere(
-        (u) => u.username == username && u.password == password,
-      );
-      _currentUser = user;
-      return user;
+      await _client.auth.refreshSession();
     } catch (_) {
-      // Saved credentials no longer valid — clear them
-      await prefs.remove(_kUsernameKey);
-      await prefs.remove(_kPasswordKey);
-      return null;
+      // No session or refresh failed — expected if not logged in
     }
+    return currentUser;
   }
 
-  /// Attempt to log in with [username] and [password].
-  /// Returns the matched [UserModel] on success, or `null` on failure.
-  static Future<UserModel?> login(String username, String password) async {
-    await _ensureLoaded();
-    try {
-      final user = _users!.firstWhere(
-        (u) => u.username == username && u.password == password,
-      );
-      _currentUser = user;
+  // ── Sign in ───────────────────────────────────────────────────────────────
 
-      // Persist session
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_kUsernameKey, username);
-      await prefs.setString(_kPasswordKey, password);
-
-      return user;
-    } catch (_) {
-      return null;
-    }
+  /// Sign in with [email] and [password].
+  /// Returns [UserModel] on success, throws [AuthException] on failure.
+  static Future<UserModel> signIn(String email, String password) async {
+    final response = await _client.auth.signInWithPassword(
+      email: email.trim(),
+      password: password,
+    );
+    final u = response.user;
+    if (u == null) throw const AuthException('Sign in failed — no user returned.');
+    return UserModel.fromSupabaseUser(u);
   }
 
-  /// Log out the current user and clear persisted session.
+  // ── Sign up ───────────────────────────────────────────────────────────────
+
+  /// Create a new account with [email], [password], optional [displayName],
+  /// and any extra [metadata] to store in the user's Supabase profile.
+  /// Returns [UserModel] on success, throws [AuthException] on failure.
+  static Future<UserModel> signUp({
+    required String email,
+    required String password,
+    String? displayName,
+    Map<String, dynamic>? metadata,
+  }) async {
+    final data = <String, dynamic>{};
+    if (displayName != null && displayName.isNotEmpty) {
+      data['full_name'] = displayName.trim();
+    }
+    if (metadata != null) data.addAll(metadata);
+
+    final response = await _client.auth.signUp(
+      email: email.trim(),
+      password: password,
+      data: data.isNotEmpty ? data : null,
+    );
+    final u = response.user;
+    if (u == null) throw const AuthException('Sign up failed — no user returned.');
+
+    // Attempt to store in 'users' table (ignoring errors if table doesn't exist yet, to not block auth)
+    try {
+      await _client.from('users').upsert({
+        'id': u.id,
+        'email': email.trim(),
+        'full_name': displayName?.trim() ?? '',
+        ...data,
+      });
+    } catch (_) {
+      // Table might not be set up yet or RLS policies might block it, 
+      // but the Auth user is created so we proceed.
+    }
+
+    return UserModel.fromSupabaseUser(u);
+  }
+
+  // ── Sign out ──────────────────────────────────────────────────────────────
+
+  /// Sign out the current user.
   static Future<void> logout() async {
-    _currentUser = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kUsernameKey);
-    await prefs.remove(_kPasswordKey);
+    await _client.auth.signOut();
   }
 }

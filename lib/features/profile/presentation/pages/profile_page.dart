@@ -9,6 +9,7 @@ import 'package:playon/core/services/auth_service.dart';
 import 'package:playon/features/auth/presentation/pages/login_page.dart';
 import 'package:playon/features/profile/presentation/widgets/player_card_3d_wrapper.dart';
 import 'package:playon/features/profile/presentation/widgets/rarity_progress_bar.dart';
+import 'package:playon/features/profile/presentation/pages/edit_sports_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final UserModel user;
@@ -93,7 +94,16 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               const SizedBox(height: 16),
-              _MenuItem(icon: Icons.sports_soccer, title: 'My Sport Preferences'),
+              _MenuItem(
+                icon: Icons.sports_soccer,
+                title: 'My Sport Preferences',
+                onTap: () {
+                  Navigator.pop(ctx); // Close sheet
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => EditSportsPage(user: widget.user),
+                  ));
+                },
+              ),
               _MenuItem(icon: Icons.history, title: 'Game History'),
               _MenuItem(icon: Icons.bookmark_outline, title: 'Saved Turfs'),
               _MenuItem(icon: Icons.settings_outlined, title: 'Settings'),
@@ -201,7 +211,7 @@ class _ProfilePageState extends State<ProfilePage> {
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
-                'TAP TO FLIP  •  DRAG TO TILT',
+                'DRAG TO TILT',
                 style: TextStyle(
                   color: Colors.black26,
                   fontSize: 9,
@@ -220,7 +230,8 @@ class _ProfilePageState extends State<ProfilePage> {
 class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String title;
-  const _MenuItem({required this.icon, required this.title});
+  final VoidCallback? onTap;
+  const _MenuItem({required this.icon, required this.title, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -229,6 +240,7 @@ class _MenuItem extends StatelessWidget {
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: Icon(icon, color: Colors.black87),
+          onTap: onTap,
           title: Text(title,
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
           trailing: const Icon(Icons.arrow_forward_ios,

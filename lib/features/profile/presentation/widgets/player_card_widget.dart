@@ -386,8 +386,16 @@ class _StatsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final left = [('PAC', data.pace), ('SHO', data.shooting), ('PAS', data.passing)];
-    final right = [('DRI', data.dribbling), ('DEF', data.defense), ('PHY', data.physical)];
+    final left = [
+      ('GMS', data.gamesPlayed.toString()),
+      ('WNS', data.wins.toString()),
+      ('GLS', data.goals.toString()),
+    ];
+    final right = [
+      ('AST', data.assists.toString()),
+      ('CLN', data.cleanSheets.toString()),
+      ('AVG', data.avgMatchRating.toStringAsFixed(1)),
+    ];
 
     return LayoutBuilder(builder: (ctx, box) {
       final colW = box.maxWidth / 2;
@@ -406,7 +414,7 @@ class _StatsGrid extends StatelessWidget {
 }
 
 class _StatCol extends StatelessWidget {
-  final List<(String, int)> stats;
+  final List<(String, String)> stats;
   final PlayOnCardTheme theme;
   final double valSz, lblSz, sf;
   const _StatCol(
@@ -428,7 +436,7 @@ class _StatCol extends StatelessWidget {
                               fontSize: lblSz,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1)),
-                      Text('${s.$2}',
+                      Text(s.$2,
                           style: TextStyle(
                               color: theme.statsValueColor,
                               fontSize: valSz,
